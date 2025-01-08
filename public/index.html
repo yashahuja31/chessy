@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chessy</title>
+    <link href="./src/output.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<style>
+    .chessboard {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        grid-template-rows: repeat(8, minmax(0, 1fr));
+        width: 400px;
+        height: 400px;
+        transform: rotate(0deg);
+    }
+
+    .piece.white {
+        color: white;
+        filter: drop-shadow(0 0 2px rgba(0, 0, 0, 1));
+    }
+
+    .piece.black {
+        color: black;
+    }
+
+    .flipped {
+        transform: rotate(180deg);
+    }
+
+    .square {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .square.light {
+        background-color: #f0d9b5;
+    }
+
+    .square.dark {
+        background-color: #b58863;
+    }
+
+    .piece {
+        font-size: 36px;
+        cursor: pointer;
+    }
+
+    .piece.draggable {
+        cursor: grab;
+    }
+
+    .dragging {
+        opacity: 0.5;
+    }
+
+    .flipped .piece {
+        transform: rotate(180deg);
+    }
+
+    #promotionModal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+    }
+
+    #promotionModal.flex {
+        display: flex;
+    }
+
+    .promotion-option {
+        padding: 10px 20px;
+        background-color: #f0c14b;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .promotion-option:hover {
+        background-color: #ddb347;
+    }
+    
+    #chatMessages {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+</style>
+<body>
+    <div class="flex">
+        <div class="mt-40 ml-20 w-[40em] h-[40em] bg-white chessboard"></div>
+        <div class="mt-40 ml-20 w-[40em] h-[40em] bg-gray-100 p-4">
+            <h2 class="text-lg mb-2">Chat</h2>
+            <div id="chatMessages" class="h-4/5 overflow-y-auto border border-gray-300 p-2 mb-2"></div>
+            <input id="chatInput" type="text" class="w-full border border-gray-300 p-2" placeholder="Type your message..." />
+            <button id="sendMessage" class="bg-blue-500 text-white p-2 mt-2">Send</button>
+        </div>
+    </div>
+
+    <!-- Promotion Modal -->
+    <div id="promotionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center">
+        <div class="bg-white p-4 rounded">
+            <h2 class="text-lg mb-2">Promote Pawn</h2>
+            <div class="flex justify-around">
+                <button class="promotion-option" data-piece="q">Queen</button>
+                <button class="promotion-option" data-piece="n">Knight</button>
+                <button class="promotion-option" data-piece="r">Rook</button>
+                <button class="promotion-option" data-piece="b">Bishop</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js" integrity="sha512-xRllwz2gdZciIB+AkEbeq+gVhX8VB8XsfqeFbUh+SzHlN96dEduwtTuVuc2u9EROlmW9+yhRlxjif66ORpsgVA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="./js/chessb.js"></script>
+</body>
+</html>
