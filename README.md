@@ -31,7 +31,7 @@ Chessy is an interactive and robust Chess Web Application designed for both casu
 
 Chessy leverages a combination of client-side and server-side technologies to deliver its features:
 
-  * [**Real-time Play:** Socket.io facilitates immediate communication between players, ensuring moves are reflected instantly on both chessboards.
+  * **Real-time Play:** Socket.io facilitates immediate communication between players, ensuring moves are reflected instantly on both chessboards.
   * **Game Logic:** Chess.js manages the fundamental rules of chess, including move validation, game state, and victory conditions.
   * **Game Analysis:** For post-game analysis, Stockfish.js provides a strong chess engine that can evaluate positions, suggest optimal moves, and highlight tactical opportunities or mistakes from your games[.
   * **User Interface:** HTML structures the content, while Tailwind CSS provides a utility-first framework for rapid and responsive styling, ensuring a consistent look and feel across devices. JavaScript ties everything together, handling user interactions and dynamic content updates.
