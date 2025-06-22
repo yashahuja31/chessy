@@ -68,7 +68,7 @@ To get a local copy up and running, follow these simple steps.
 4.  **Start the server:**
 
     ```bash
-    npm start
+    npx nodemon
     ```
 
     (Note: The actual command might vary based on your server setup, e.g., `node server.js` if you have a `server.js` file.)
