@@ -1,1 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Game Analysis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .header {
+            width: 90%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px;
+            margin-bottom: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+            gap: 10px; /* Spacing between counts */
+        }
+        .move-type {
+            font-weight: bold;
+            padding: 8px 15px;
+            border-radius: 7px;
+            color: white;
+            min-width: 120px; /* Ensure consistent width */
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        /* Defined colors for move types */
+        .brilliant { background-color: #00bcd4; } /* Cyan */
+        .great { background-color: #9c27b0; } /* Purple */
+        .good { background-color: #4CAF50; } /* Dark Green */
+        .okay { background-color: #8bc34a; } /* Light Green */
+        .only { background-color: #9e9e9e; } /* Grey */
+        .mistake { background-color: #ffeb3b; color: #333;} /* Yellow - needs dark text */
+        .blunder { background-color: #f44336; } /* Red */
 
+        .analysis-container {
+            width: 90%;
+            max-width: 1200px;
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            max-height: 70vh; /* Limit height and make scrollable */
+            overflow-y: auto;
+        }
+        .move-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .move-item:last-child {
+            border-bottom: none;
+        }
+        .move-item:hover {
+            background-color: #f9f9f9;
+        }
+        .move-number {
+            font-weight: bold;
+            width: 40px;
+            text-align: center;
+            color: #555;
+        }
+        .move-notation {
+            flex-grow: 1;
+            padding-left: 15px;
+            font-size: 1.05em;
+        }
+        /* Specific styling for classified moves within notation */
+        .move-notation.brilliant { color: #00bcd4; font-weight: bold; }
+        .move-notation.great { color: #9c27b0; font-weight: bold; }
+        .move-notation.good { color: #4CAF50; font-weight: bold; }
+        .move-notation.okay { color: #8bc34a; }
+        .move-notation.only { color: #9e9e9e; }
+        .move-notation.mistake { color: #ffeb3b; }
+        .move-notation.blunder { color: #f44336; font-weight: bold; }
+
+        .move-evaluation {
+            width: 250px; /* Adjust width to fit content */
+            text-align: right;
+            font-family: 'Roboto Mono', monospace; /* Monospace for evaluations */
+            font-size: 0.95em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="text-4xl font-extrabold mb-8 text-gray-800">Game Analysis</h1>
+    <div class="header">
+        <div class="brilliant move-type">Brilliant: <span id="brilliantCount">0</span></div>
+        <div class="great move-type">Great: <span id="greatCount">0</span></div>
+        <div class="good move-type">Good: <span id="goodCount">0</span></div>
+        <div class="okay move-type">Okay: <span id="okayCount">0</span></div>
+        <div class="only move-type">Only: <span id="onlyCount">0</span></div>
+        <div class="mistake move-type">Mistakes: <span id="mistakeCount">0</span></div>
+        <div class="blunder move-type">Blunders: <span id="blunderCount">0</span></div>
+    </div>
+    <div class="analysis-container">
+        <div id="analysisContent">
+            <p class="text-center text-gray-500 text-lg py-10">Loading analysis...</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script>
+        const stockfish = new Worker('./js/stockfish.js');
+
+        const getQueryParams = () => {
+            const params = {};
+            new URLSearchParams(window.location.search).forEach((value, key) => {
+                params[key] = value;
+            });
+            return params;
+        };
+
+        // Function to get Stockfish evaluation for a given FEN
+        const getEngineEvaluation = (fen) => {
+            return new Promise(resolve => {
+                let bestMove = null;
+                let evaluation = null;
+
+                const handleStockfishMessage = (event) => {
+                    const message = event.data;
+                    // console.log("Stockfish message:", message); // Debugging Stockfish output
+
+                    if (message.startsWith('info')) {
+                        const scoreMatch = message.match(/score (cp|mate) (-?\d+)/);
+                        const pvMatch = message.match(/ pv (\S+)/);
+
+                        if (scoreMatch) {
+                            const type = scoreMatch[1];
+                            const value = parseInt(scoreMatch[2]);
+                            evaluation = { type, value };
+                        }
+                        if (pvMatch) {
+                            bestMove = pvMatch[1];
+                        }
+                    } else if (message.startsWith('bestmove')) {
+                        stockfish.removeEventListener('message', handleStockfishMessage);
+                        resolve({ evaluation, bestMove });
+                    }
+                };
+
+                stockfish.addEventListener('message', handleStockfishMessage);
+                stockfish.postMessage(`position fen ${fen}`);
+                stockfish.postMessage('go depth 15'); // Adjust depth for more accurate analysis
+            });
+        };
+
+        const classifyMove = (playerColor, playerEval, engineOptimalEval, previousEval) => {
+            // Convert mate scores to large centipawn values for comparison
+            const convertEvalToCp = (evalObj, color) => {
+                if (!evalObj) return 0; // Handle missing evaluations
+                let value = evalObj.value;
+                if (evalObj.type === 'mate') {
+                    // Mate in N moves. Assign a very large CP value.
+                    // If mate for current player, it's positive. If for opponent, it's negative.
+                    // A smaller absolute value of 'value' means mate in fewer moves (better).
+                    const mateSign = value > 0 ? 1 : -1;
+                    return mateSign * (100000 - Math.abs(value)); // Mate in 1 is 99999, Mate in 2 is 99998 etc.
+                }
+                return value; // Already centipawns
+            };
+
+            const prevCp = convertEvalToCp(previousEval, playerColor);
+            const playerCp = convertEvalToCp(playerEval, playerColor);
+            const engineOptimalCp = convertEvalToCp(engineOptimalEval, playerColor);
+
+            // Adjust evaluations to be from the perspective of the player who just moved
+            // If black moved, flip the sign of the evaluation values for comparison.
+            const adjustedPlayerCp = (playerColor === 'b' && playerEval.type !== 'mate') ? -playerCp : playerCp;
+            const adjustedEngineOptimalCp = (playerColor === 'b' && engineOptimalEval.type !== 'mate') ? -engineOptimalCp : engineOptimalCp;
+            const adjustedPrevCp = (playerColor === 'b' && previousEval.type !== 'mate') ? -prevCp : prevCp;
+
+            // Calculate centipawn loss compared to the previous position's evaluation
+            // A positive cpLoss means the player made the position worse for themselves.
+            const cpLoss = adjustedPrevCp - adjustedPlayerCp;
+
+            // Difference from engine's best move
+            const diffFromEngine = Math.abs(adjustedPlayerCp - adjustedEngineOptimalCp);
+
+            // Brilliant: significantly improves position or finds mate that engine also finds
+            // If the player found a mate or gained a lot of advantage that the engine also found
+            if (playerEval.type === 'mate' && playerEval.value > 0) return 'brilliant';
+            if (cpLoss <= -150) return 'brilliant'; // Gained 1.5 pawns or more
+
+            // Great: good move, or gains significant advantage
+            if (cpLoss <= -50) return 'great'; // Gained 0.5 pawns or more
+
+            // Blunder: Significant loss of material or allows forced mate
+            if (cpLoss >= 300) return 'blunder'; // Lost 3 pawns or more
+            if (engineOptimalEval.type === 'mate' && engineOptimalEval.value > 0 && playerEval.type !== 'mate') return 'blunder'; // Missed a forced mate
+
+            // Mistake: Medium loss of material or allows strong attack
+            if (cpLoss >= 100) return 'mistake'; // Lost 1 pawn or more
+
+            // Okay: Minor loss, but still playable. Or not the best, but not bad.
+            if (cpLoss >= 30) return 'okay'; // Lost 0.3 pawns or more
+
+            // Good: Close to optimal, minor deviation
+            if (diffFromEngine <= 20) return 'good'; // Within 0.2 pawns of engine's best move
+
+            // Only Move: If the move chosen is within a small margin of the optimal move
+            if (diffFromEngine <= 50) return 'only'; // Within 0.5 pawns of engine's best move
+
+            return 'good'; // Default if none of the above
+        };
+
+
+        const getMoveClassification = async (playerColor, playerMoveFEN, prevFEN) => {
+            const tempChess = new Chess();
+            
+            // 1. Get evaluation of the position BEFORE the player's move
+            const { evaluation: prevEvaluation } = await getEngineEvaluation(prevFEN);
+
+            // 2. Get evaluation of the position AFTER the player's move
+            tempChess.load(playerMoveFEN); // Load the FEN after player's move
+            const { evaluation: playerEvaluation } = await getEngineEvaluation(playerMoveFEN);
+
+            // 3. Get engine's best move and its evaluation from the *previous* position
+            const { bestMove: engineBestMove, evaluation: engineBestMoveEval } = await getEngineEvaluation(prevFEN);
+
+            let classification = 'good'; // Default classification
+            if (prevEvaluation && playerEvaluation && engineBestMoveEval) {
+                classification = classifyMove(playerColor, playerEvaluation, engineBestMoveEval, prevEvaluation);
+            } else {
+                console.warn("Missing evaluations for classification, defaulting to 'good':", { prevEvaluation, playerEvaluation, engineBestMoveEval });
+            }
+            
+            // Format evaluations for display
+            const formatEval = (evalObj) => {
+                if (!evalObj) return 'N/A';
+                if (evalObj.type === 'mate') return `M${evalObj.value}`;
+                return (evalObj.value / 100).toFixed(2); // Convert centipawns to pawns with 2 decimal places
+            };
+
+            return {
+                classification,
+                playerEvaluation: formatEval(playerEvaluation),
+                engineBestMove: engineBestMove || 'N/A',
+                engineBestMoveEvaluation: formatEval(engineBestMoveEval)
+            };
+        };
+
+        const displayAnalysis = async (gameMoves) => {
+            const analysisContent = document.getElementById('analysisContent');
+            analysisContent.innerHTML = ''; // Clear loading message
+
+            let currentFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'; // Starting FEN
+            const tempChess = new Chess();
+            const counts = { brilliant: 0, great: 0, good: 0, okay: 0, only: 0, mistake: 0, blunder: 0 };
+
+            for (let i = 0; i < gameMoves.length; i++) {
+                const moveSan = gameMoves[i]; // SAN move string (e.g., "e4", "Nf3")
+                const prevFen = currentFen; // FEN before the current move
+
+                // Apply the move to the temporary chess object to get the new FEN
+                tempChess.load(currentFen); // Load previous FEN
+                const moveResult = tempChess.move(moveSan, { sloppy: true }); // Apply SAN move
+                if (!moveResult) {
+                    console.error("Invalid move in game history (SAN):", moveSan);
+                    continue; // Skip this move if it's invalid
+                }
+                currentFen = tempChess.fen(); // Get FEN after the current move
+
+                const playerColor = (i % 2 === 0) ? 'w' : 'b'; // Determine whose move it was
+                const { classification, playerEvaluation, engineBestMove, engineBestMoveEvaluation } = await getMoveClassification(playerColor, currentFen, prevFen);
+                
+                counts[classification]++; // Increment count for this move type
+
+                const moveElement = document.createElement('div');
+                moveElement.classList.add('move-item');
+                moveElement.innerHTML = `
+                    <div class="move-number">${Math.floor(i / 2) + 1}${playerColor === 'b' ? '...' : '.'}</div>
+                    <div class="move-notation ${classification}">${moveSan}</div>
+                    <div class="move-evaluation">Player: ${playerEvaluation} | Engine: ${engineBestMove} (${engineBestMoveEvaluation})</div>
+                `;
+                analysisContent.appendChild(moveElement);
+            }
+
+            // Update counts in the header
+            document.getElementById('brilliantCount').textContent = counts.brilliant;
+            document.getElementById('greatCount').textContent = counts.great;
+            document.getElementById('goodCount').textContent = counts.good;
+            document.getElementById('okayCount').textContent = counts.okay;
+            document.getElementById('onlyCount').textContent = counts.only;
+            document.getElementById('mistakeCount').textContent = counts.mistake;
+            document.getElementById('blunderCount').textContent = counts.blunder;
+        };
+
+        // Fetch game moves from the server when the page loads
+        window.onload = async () => {
+            const params = getQueryParams();
+            const gameId = params.gameId;
+
+            if (gameId) {
+                try {
+                    const response = await fetch(`/games/${gameId}`); // Fetch specific game data
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const game = await response.json();
+                    if (game && game.moves && game.moves.length > 0) {
+                        displayAnalysis(game.moves); // Start analysis
+                    } else {
+                        document.getElementById('analysisContent').innerHTML = '<p class="text-center text-red-500 text-lg py-10">No moves found for this game ID.</p>';
+                    }
+                } catch (error) {
+                    console.error("Error fetching game for analysis:", error);
+                    document.getElementById('analysisContent').innerHTML = '<p class="text-center text-red-500 text-lg py-10">Error loading game data. Please ensure the game ID is valid and the server is running.</p>';
+                }
+            } else {
+                document.getElementById('analysisContent').innerHTML = '<p class="text-center text-gray-500 text-lg py-10">No game ID provided for analysis.</p>';
+            }
+        };
+    </script>
+</body>
+</html>
